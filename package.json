@@ -1,0 +1,22 @@
+{
+  "name": "sourcepawn-language-server",
+  "version": "0.1.0",
+  "description": "Language Server Protocol implementation for the sourcepawn language",
+  "author": "Nils Helmig",
+  "license": "MIT",
+  "engines": {
+    "node": "*"
+  },
+  "scripts": {
+    "start": "node out/index.js",
+    "compile": "tsc -p ./",
+    "watch": "tsc --watch -p ./"
+  },
+  "dependencies": {
+    "vscode-languageserver": "^6.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^14.6.0",
+    "typescript": "^3.9.7"
+  }
+}
