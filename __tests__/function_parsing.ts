@@ -1,4 +1,5 @@
 import {
+  Parse,
   All_function_definitions,
   Function_definition,
   Type,
@@ -8,6 +9,10 @@ import {
   Argument,
   SourcePawnType,
 } from "../src/parser";
+
+function AST_of(code: string) {
+  return Parse(code);
+}
 
 function defined_function(
   name: string,
@@ -57,12 +62,14 @@ const types = {
 
 test("Parsing function declaration - no arguments", () => {
   const defined_functions = All_function_definitions(
-    `void MyFunc1() {}
-    int MyFunc2() {}
-    float MyFunc3() {}
-    char MyFunc4() {}
-    bool MyFunc5() {}
-    Handle MyFunc6() {}`
+    AST_of(
+      `void MyFunc1() {}
+      int MyFunc2() {}
+      float MyFunc3() {}
+      char MyFunc4() {}
+      bool MyFunc5() {}
+      Handle MyFunc6() {}`
+    )
   );
   expect(defined_functions).toEqual([
     defined_function("MyFunc1", types.void, no_arguments),
@@ -76,11 +83,13 @@ test("Parsing function declaration - no arguments", () => {
 
 test("Parsing function declaration - single argument", () => {
   const defined_functions = All_function_definitions(
-    `void MyFunc1(int a) {}
-    void MyFunc2(float a) {}
-    void MyFunc3(char a) {}
-    void MyFunc4(bool a) {}
-    void MyFunc5(DataPack a) {}`
+    AST_of(
+      `void MyFunc1(int a) {}
+      void MyFunc2(float a) {}
+      void MyFunc3(char a) {}
+      void MyFunc4(bool a) {}
+      void MyFunc5(DataPack a) {}`
+    )
   );
   expect(defined_functions).toEqual([
     defined_function("MyFunc1", types.void, [argument("a", types.int)]),
@@ -95,11 +104,13 @@ test("Parsing function declaration - single argument", () => {
 
 test("Parsing function declaration - single argument with default value", () => {
   const defined_functions = All_function_definitions(
-    `void MyFunc(int a = 5) {}
-    void MyFunc(float a = 2.0) {}
-    void MyFunc(char a = 'c') {}
-    void MyFunc(bool a = true) {}
-    void MyFunc(Handle a = null) {}`
+    AST_of(
+      `void MyFunc(int a = 5) {}
+      void MyFunc(float a = 2.0) {}
+      void MyFunc(char a = 'c') {}
+      void MyFunc(bool a = true) {}
+      void MyFunc(Handle a = null) {}`
+    )
   );
   expect(defined_functions).toEqual([
     defined_function("MyFunc", types.void, [
@@ -122,7 +133,9 @@ test("Parsing function declaration - single argument with default value", () => 
 
 test("Parsing function declaration - multiple arguments", () => {
   const defined_functions = All_function_definitions(
-    "MyFunc(int a, float b, char c, bool d, Action e = Plugin_Handled) {}"
+    AST_of(
+      "MyFunc(int a, float b, char c, bool d, Action e = Plugin_Handled) {}"
+    )
   );
   expect(defined_functions).toEqual([
     defined_function("MyFunc", types.int, [
@@ -137,10 +150,11 @@ test("Parsing function declaration - multiple arguments", () => {
 
 test("Parsing function declaration - argument with dimension", () => {
   const defined_functions = All_function_definitions(
-    `void MyFunc1(float vec[3]) {}
-    void MyFunc2(float vecs[16][3]) {}
-    void MyFunc3(char[] str) {}
-    `
+    AST_of(
+      `void MyFunc1(float vec[3]) {}
+      void MyFunc2(float vecs[16][3]) {}
+      void MyFunc3(char[] str) {}`
+    )
   );
   expect(defined_functions).toEqual([
     defined_function("MyFunc1", types.void, [
@@ -156,7 +170,7 @@ test("Parsing function declaration - argument with dimension", () => {
 });
 
 test("Parsing old style function declaration - no arguments, implicit return type", () => {
-  const defined_functions = All_function_definitions("MyFunc() {}");
+  const defined_functions = All_function_definitions(AST_of("MyFunc() {}"));
   expect(defined_functions).toEqual([
     defined_function("MyFunc", types.int, no_arguments),
   ]);
@@ -164,11 +178,13 @@ test("Parsing old style function declaration - no arguments, implicit return typ
 
 test("Parsing old style function declaration - no arguments, explicit return type", () => {
   const defined_functions = All_function_definitions(
-    `_:MyFunc1() {}
-    Float:MyFunc2() {}
-    String:MyFunc3() {}
-    bool:MyFunc4() {}
-    Action:MyFunc5() {}`
+    AST_of(
+      `_:MyFunc1() {}
+      Float:MyFunc2() {}
+      String:MyFunc3() {}
+      bool:MyFunc4() {}
+      Action:MyFunc5() {}`
+    )
   );
   expect(defined_functions).toEqual([
     defined_function("MyFunc1", types.int, no_arguments),
@@ -181,12 +197,14 @@ test("Parsing old style function declaration - no arguments, explicit return typ
 
 test("Parsing old style function declaration - single argument", () => {
   const defined_functions = All_function_definitions(
-    `MyFunc1(a) {}
-    MyFunc2(_:a)) {}
-    MyFunc3(Float:a) {}
-    MyFunc4(String:a) {}
-    MyFunc5(bool:a) {}
-    MyFunc6(Action:a) {}`
+    AST_of(
+      `MyFunc1(a) {}
+      MyFunc2(_:a)) {}
+      MyFunc3(Float:a) {}
+      MyFunc4(String:a) {}
+      MyFunc5(bool:a) {}
+      MyFunc6(Action:a) {}`
+    )
   );
   expect(defined_functions).toEqual([
     defined_function("MyFunc1", types.int, [argument("a", types.int)]),

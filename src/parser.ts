@@ -32,10 +32,17 @@ export interface Function_definition {
   readonly args: ReadonlyArray<Argument>;
 }
 
+export function Parse(code: string) {
+  return parser.parse(code);
+}
+
+export function ParseChange(change: string, oldTree: Parser.Tree) {
+  return parser.parse(change, oldTree);
+}
+
 export function All_function_definitions(
-  code: string
+  ast: Parser.Tree
 ): ReadonlyArray<Function_definition> {
-  const ast = parser.parse(code);
   if (!ast.rootNode) return [];
 
   return ast.rootNode

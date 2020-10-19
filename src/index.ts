@@ -1,10 +1,9 @@
+import Document from "./document";
 import {
   createConnection,
   IConnection,
   CompletionItemKind,
 } from "vscode-languageserver";
-
-import { All_function_definitions } from "./parser";
 
 const connection: IConnection = createConnection();
 
@@ -18,14 +17,12 @@ connection.onInitialize((_) => {
   };
 });
 
-const docs = {};
+const docs: { [key: string]: Document } = {};
 connection.onInitialized((_) => {
   connection.console.log("Started sourcepawn LS");
   connection.onCompletion((r) => {
-    let text = docs[r.textDocument.uri];
-
     try {
-      let funcs = All_function_definitions(text);
+      let funcs = docs[r.textDocument.uri].defined_functions;
       return funcs.map((fun) => ({
         label: fun.name,
         kind: CompletionItemKind.Function,
@@ -44,8 +41,16 @@ connection.onInitialized((_) => {
   });
 });
 connection.onDidOpenTextDocument((params) => {
-  docs[params.textDocument.uri] = params.textDocument.text;
+  docs[params.textDocument.uri] = new Document(params.textDocument.text);
   connection.console.log(`Did open ${params.textDocument.uri}`);
+});
+connection.onDidChangeTextDocument((params) => {
+  connection.console.log(`Did change ${params.textDocument.uri}`);
+  docs[params.textDocument.uri].applyChanges(params.contentChanges);
+});
+connection.onDidCloseTextDocument((params) => {
+  connection.console.log(`Did close ${params.textDocument.uri}`);
+  delete docs[params.textDocument.uri];
 });
 
 connection.listen();
