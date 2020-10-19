@@ -4,8 +4,21 @@ import SourcePawn from "tree-sitter-sourcepawn";
 const parser = new Parser();
 parser.setLanguage(SourcePawn);
 
-export type SourcePawnType = "void" | "int" | "float" | "char" | "bool";
-export type Type = SourcePawnType | string;
+export enum SourcePawnType {
+  Void,
+  Int,
+  Float,
+  Char,
+  Bool,
+}
+export type BuiltInType = { typeCase: 1; type: SourcePawnType };
+export type CustomType = { typeCase: 2; type: string };
+export type DimensionalType = {
+  typeCase: 3;
+  depth: number;
+  type: BuiltInType | CustomType;
+};
+export type Type = BuiltInType | CustomType | DimensionalType;
 
 export interface Argument {
   readonly type: Type;
@@ -64,33 +77,42 @@ function parse_function_definition(
       : returnTypeNode?.text;
   return name != null
     ? {
-        returnType: as_SourcePawnType(returnType) ?? returnType ?? "int",
+        returnType: parseType(returnType) || {
+          typeCase: 1,
+          type: SourcePawnType.Int,
+        },
         name,
         args: args.map(parse_argument).filter(notNull),
       }
     : null;
 }
 
-function as_SourcePawnType(input: string | undefined): SourcePawnType | null {
+function parseType(input: string | undefined): BuiltInType | CustomType | null {
+  return input === undefined
+    ? null
+    : parseBuiltInType(input) || { typeCase: 2, type: input };
+}
+
+function parseBuiltInType(input: string | undefined): BuiltInType | null {
   switch (input) {
     case "void":
-      return "void";
+      return { typeCase: 1, type: SourcePawnType.Void };
 
     case "Float":
     case "float":
-      return "float";
+      return { typeCase: 1, type: SourcePawnType.Float };
 
     case "bool":
-      return "bool";
+      return { typeCase: 1, type: SourcePawnType.Bool };
 
     case "String":
     case "char":
-      return "char";
+      return { typeCase: 1, type: SourcePawnType.Char };
 
     case "int":
     case "_":
     case null:
-      return "int";
+      return { typeCase: 1, type: SourcePawnType.Int };
 
     default:
       return null;
@@ -105,9 +127,20 @@ function parse_argument(node: Parser.SyntaxNode): Argument | null {
       ? typeNameNode.text
       : typeNameNode?.firstChild?.text;
 
+  const dimension =
+    node.descendantsOfType("dimension").length +
+    node.descendantsOfType("fixed_dimension").length;
+
   return name != null
     ? {
-        type: as_SourcePawnType(typeName) ?? typeName ?? "int",
+        type:
+          dimension > 0
+            ? ({
+                typeCase: 3,
+                depth: dimension,
+                type: parseType(typeName),
+              } as DimensionalType)
+            : parseType(typeName) || { typeCase: 1, type: SourcePawnType.Int },
         name,
         defaultValue: getFieldNodes("defaultValueNodes", node)[1]?.text,
       }

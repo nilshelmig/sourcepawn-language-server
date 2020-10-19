@@ -2,7 +2,11 @@ import {
   All_function_definitions,
   Function_definition,
   Type,
+  CustomType,
+  BuiltInType,
+  DimensionalType,
   Argument,
+  SourcePawnType,
 } from "../src/parser";
 
 function defined_function(
@@ -38,6 +42,18 @@ function argument_with_default(
 }
 
 const no_arguments: ReadonlyArray<Argument> = [];
+const types = {
+  void: { typeCase: 1, type: SourcePawnType.Void } as BuiltInType,
+  int: { typeCase: 1, type: SourcePawnType.Int } as BuiltInType,
+  float: { typeCase: 1, type: SourcePawnType.Float } as BuiltInType,
+  char: { typeCase: 1, type: SourcePawnType.Char } as BuiltInType,
+  bool: { typeCase: 1, type: SourcePawnType.Bool } as BuiltInType,
+  custom: (type: string): CustomType => ({ typeCase: 2, type }),
+  dimensional: (
+    depth: number,
+    type: BuiltInType | CustomType
+  ): DimensionalType => ({ typeCase: 3, depth, type }),
+};
 
 test("Parsing function declaration - no arguments", () => {
   const defined_functions = All_function_definitions(
@@ -49,12 +65,12 @@ test("Parsing function declaration - no arguments", () => {
     Handle MyFunc6() {}`
   );
   expect(defined_functions).toEqual([
-    defined_function("MyFunc1", "void", no_arguments),
-    defined_function("MyFunc2", "int", no_arguments),
-    defined_function("MyFunc3", "float", no_arguments),
-    defined_function("MyFunc4", "char", no_arguments),
-    defined_function("MyFunc5", "bool", no_arguments),
-    defined_function("MyFunc6", "Handle", no_arguments),
+    defined_function("MyFunc1", types.void, no_arguments),
+    defined_function("MyFunc2", types.int, no_arguments),
+    defined_function("MyFunc3", types.float, no_arguments),
+    defined_function("MyFunc4", types.char, no_arguments),
+    defined_function("MyFunc5", types.bool, no_arguments),
+    defined_function("MyFunc6", types.custom("Handle"), no_arguments),
   ]);
 });
 
@@ -67,11 +83,13 @@ test("Parsing function declaration - single argument", () => {
     void MyFunc5(DataPack a) {}`
   );
   expect(defined_functions).toEqual([
-    defined_function("MyFunc1", "void", [argument("a", "int")]),
-    defined_function("MyFunc2", "void", [argument("a", "float")]),
-    defined_function("MyFunc3", "void", [argument("a", "char")]),
-    defined_function("MyFunc4", "void", [argument("a", "bool")]),
-    defined_function("MyFunc5", "void", [argument("a", "DataPack")]),
+    defined_function("MyFunc1", types.void, [argument("a", types.int)]),
+    defined_function("MyFunc2", types.void, [argument("a", types.float)]),
+    defined_function("MyFunc3", types.void, [argument("a", types.char)]),
+    defined_function("MyFunc4", types.void, [argument("a", types.bool)]),
+    defined_function("MyFunc5", types.void, [
+      argument("a", types.custom("DataPack")),
+    ]),
   ]);
 });
 
@@ -84,20 +102,20 @@ test("Parsing function declaration - single argument with default value", () => 
     void MyFunc(Handle a = null) {}`
   );
   expect(defined_functions).toEqual([
-    defined_function("MyFunc", "void", [
-      argument_with_default("a", "int", "5"),
+    defined_function("MyFunc", types.void, [
+      argument_with_default("a", types.int, "5"),
     ]),
-    defined_function("MyFunc", "void", [
-      argument_with_default("a", "float", "2.0"),
+    defined_function("MyFunc", types.void, [
+      argument_with_default("a", types.float, "2.0"),
     ]),
-    defined_function("MyFunc", "void", [
-      argument_with_default("a", "char", "'c'"),
+    defined_function("MyFunc", types.void, [
+      argument_with_default("a", types.char, "'c'"),
     ]),
-    defined_function("MyFunc", "void", [
-      argument_with_default("a", "bool", "true"),
+    defined_function("MyFunc", types.void, [
+      argument_with_default("a", types.bool, "true"),
     ]),
-    defined_function("MyFunc", "void", [
-      argument_with_default("a", "Handle", "null"),
+    defined_function("MyFunc", types.void, [
+      argument_with_default("a", types.custom("Handle"), "null"),
     ]),
   ]);
 });
@@ -107,12 +125,32 @@ test("Parsing function declaration - multiple arguments", () => {
     "MyFunc(int a, float b, char c, bool d, Action e = Plugin_Handled) {}"
   );
   expect(defined_functions).toEqual([
-    defined_function("MyFunc", "int", [
-      argument("a", "int"),
-      argument("b", "float"),
-      argument("c", "char"),
-      argument("d", "bool"),
-      argument_with_default("e", "Action", "Plugin_Handled"),
+    defined_function("MyFunc", types.int, [
+      argument("a", types.int),
+      argument("b", types.float),
+      argument("c", types.char),
+      argument("d", types.bool),
+      argument_with_default("e", types.custom("Action"), "Plugin_Handled"),
+    ]),
+  ]);
+});
+
+test("Parsing function declaration - argument with dimension", () => {
+  const defined_functions = All_function_definitions(
+    `void MyFunc1(float vec[3]) {}
+    void MyFunc2(float vecs[16][3]) {}
+    void MyFunc3(char[] str) {}
+    `
+  );
+  expect(defined_functions).toEqual([
+    defined_function("MyFunc1", types.void, [
+      argument("vec", types.dimensional(1, types.float)),
+    ]),
+    defined_function("MyFunc2", types.void, [
+      argument("vecs", types.dimensional(2, types.float)),
+    ]),
+    defined_function("MyFunc3", types.void, [
+      argument("str", types.dimensional(1, types.char)),
     ]),
   ]);
 });
@@ -120,7 +158,7 @@ test("Parsing function declaration - multiple arguments", () => {
 test("Parsing old style function declaration - no arguments, implicit return type", () => {
   const defined_functions = All_function_definitions("MyFunc() {}");
   expect(defined_functions).toEqual([
-    defined_function("MyFunc", "int", no_arguments),
+    defined_function("MyFunc", types.int, no_arguments),
   ]);
 });
 
@@ -133,11 +171,11 @@ test("Parsing old style function declaration - no arguments, explicit return typ
     Action:MyFunc5() {}`
   );
   expect(defined_functions).toEqual([
-    defined_function("MyFunc1", "int", no_arguments),
-    defined_function("MyFunc2", "float", no_arguments),
-    defined_function("MyFunc3", "char", no_arguments),
-    defined_function("MyFunc4", "bool", no_arguments),
-    defined_function("MyFunc5", "Action", no_arguments),
+    defined_function("MyFunc1", types.int, no_arguments),
+    defined_function("MyFunc2", types.float, no_arguments),
+    defined_function("MyFunc3", types.char, no_arguments),
+    defined_function("MyFunc4", types.bool, no_arguments),
+    defined_function("MyFunc5", types.custom("Action"), no_arguments),
   ]);
 });
 
@@ -151,11 +189,13 @@ test("Parsing old style function declaration - single argument", () => {
     MyFunc6(Action:a) {}`
   );
   expect(defined_functions).toEqual([
-    defined_function("MyFunc1", "int", [argument("a", "int")]),
-    defined_function("MyFunc2", "int", [argument("a", "int")]),
-    defined_function("MyFunc3", "int", [argument("a", "float")]),
-    defined_function("MyFunc4", "int", [argument("a", "char")]),
-    defined_function("MyFunc5", "int", [argument("a", "bool")]),
-    defined_function("MyFunc6", "int", [argument("a", "Action")]),
+    defined_function("MyFunc1", types.int, [argument("a", types.int)]),
+    defined_function("MyFunc2", types.int, [argument("a", types.int)]),
+    defined_function("MyFunc3", types.int, [argument("a", types.float)]),
+    defined_function("MyFunc4", types.int, [argument("a", types.char)]),
+    defined_function("MyFunc5", types.int, [argument("a", types.bool)]),
+    defined_function("MyFunc6", types.int, [
+      argument("a", types.custom("Action")),
+    ]),
   ]);
 });
