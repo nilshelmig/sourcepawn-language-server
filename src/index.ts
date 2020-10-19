@@ -3,6 +3,7 @@ import {
   createConnection,
   IConnection,
   CompletionItemKind,
+  SymbolKind,
 } from "vscode-languageserver";
 
 const connection: IConnection = createConnection();
@@ -13,6 +14,7 @@ connection.onInitialize((_) => {
       completionProvider: {
         resolveProvider: false,
       },
+      documentSymbolProvider: true,
     },
   };
 });
@@ -20,9 +22,9 @@ connection.onInitialize((_) => {
 const docs: { [key: string]: Document } = {};
 connection.onInitialized((_) => {
   connection.console.log("Started sourcepawn LS");
-  connection.onCompletion((r) => {
+  connection.onCompletion((req) => {
     try {
-      let funcs = docs[r.textDocument.uri].defined_functions;
+      let funcs = docs[req.textDocument.uri].defined_functions;
       return funcs.map((fun) => ({
         label: fun.name,
         kind: CompletionItemKind.Function,
@@ -39,6 +41,16 @@ connection.onInitialized((_) => {
       connection.console.error(`${error}`);
     }
   });
+  connection.onDocumentSymbol((req) => {
+    return docs[req.textDocument.uri].defined_functions.map((fun) => ({
+      name: fun.name,
+      kind: SymbolKind.Function,
+      location: {
+        uri: req.textDocument.uri,
+        range: fun.range,
+      },
+    }));
+  });
 });
 connection.onDidOpenTextDocument((params) => {
   docs[params.textDocument.uri] = new Document(params.textDocument.text);
@@ -52,5 +64,4 @@ connection.onDidCloseTextDocument((params) => {
   connection.console.log(`Did close ${params.textDocument.uri}`);
   delete docs[params.textDocument.uri];
 });
-
 connection.listen();

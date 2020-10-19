@@ -4,6 +4,9 @@ import SourcePawn from "tree-sitter-sourcepawn";
 const parser = new Parser();
 parser.setLanguage(SourcePawn);
 
+export type Position = { line: number; character: number };
+export type Range = { start: Position; end: Position };
+
 export enum SourcePawnType {
   Void,
   Int,
@@ -27,6 +30,7 @@ export interface Argument {
 }
 
 export interface Function_definition {
+  readonly range: Range;
   readonly returnType: Type;
   readonly name: string;
   readonly args: ReadonlyArray<Argument>;
@@ -69,6 +73,10 @@ function getFieldNodes(
   return ((node as any)[field] as Parser.SyntaxNode[]) ?? [];
 }
 
+function as_Position(point: Parser.Point): Position {
+  return { line: point.row, character: point.column };
+}
+
 function parse_function_definition(
   node: Parser.SyntaxNode
 ): Function_definition | null {
@@ -84,6 +92,10 @@ function parse_function_definition(
       : returnTypeNode?.text;
   return name != null
     ? {
+        range: {
+          start: as_Position(node.startPosition),
+          end: as_Position(node.endPosition),
+        },
         returnType: parseType(returnType) || {
           typeCase: 1,
           type: SourcePawnType.Int,
