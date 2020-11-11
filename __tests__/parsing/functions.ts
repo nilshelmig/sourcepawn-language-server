@@ -1,28 +1,19 @@
 import {
-  Parse,
   All_function_definitions,
   Function_definition,
   Type,
-  CustomType,
-  BuiltInType,
-  DimensionalType,
   Argument,
-  SourcePawnType,
   Range,
-} from "../src/parser";
+} from "../../src/parser";
 
-function AST_of(code: string) {
-  return Parse(code);
-}
-
-function from(startRow, startColumn) {
-  return {
-    to: (endRow, endColumn): Range => ({
-      start: { line: startRow, character: startColumn },
-      end: { line: endRow, character: endColumn },
-    }),
-  };
-}
+import {
+  AST_of,
+  from,
+  types,
+  argument,
+  argument_with_default,
+  no_arguments,
+} from "./AST_helpers";
 
 function defined_function(
   name: string,
@@ -37,40 +28,6 @@ function defined_function(
     args,
   };
 }
-
-function argument(name: string, type: Type): Argument {
-  return {
-    name,
-    type,
-    defaultValue: undefined,
-  };
-}
-
-function argument_with_default(
-  name: string,
-  type: Type,
-  defaultValue: string
-): Argument {
-  return {
-    name,
-    type,
-    defaultValue,
-  };
-}
-
-const no_arguments: ReadonlyArray<Argument> = [];
-const types = {
-  void: { typeCase: 1, type: SourcePawnType.Void } as BuiltInType,
-  int: { typeCase: 1, type: SourcePawnType.Int } as BuiltInType,
-  float: { typeCase: 1, type: SourcePawnType.Float } as BuiltInType,
-  char: { typeCase: 1, type: SourcePawnType.Char } as BuiltInType,
-  bool: { typeCase: 1, type: SourcePawnType.Bool } as BuiltInType,
-  custom: (type: string): CustomType => ({ typeCase: 2, type }),
-  dimensional: (
-    depth: number,
-    type: BuiltInType | CustomType
-  ): DimensionalType => ({ typeCase: 3, depth, type }),
-};
 
 test("Parsing function declaration - no arguments", () => {
   const defined_functions = All_function_definitions(

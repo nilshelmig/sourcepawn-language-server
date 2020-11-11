@@ -4,6 +4,7 @@ import {
   IConnection,
   CompletionItemKind,
   SymbolKind,
+  SymbolInformation,
 } from "vscode-languageserver";
 
 const connection: IConnection = createConnection();
@@ -42,14 +43,32 @@ connection.onInitialized((_) => {
     }
   });
   connection.onDocumentSymbol((req) => {
-    return docs[req.textDocument.uri].defined_functions.map((fun) => ({
-      name: fun.name,
-      kind: SymbolKind.Function,
-      location: {
-        uri: req.textDocument.uri,
-        range: fun.range,
-      },
-    }));
+    const doc = docs[req.textDocument.uri];
+    return doc.defined_functions
+      .map(
+        (fun) =>
+          ({
+            name: fun.name,
+            kind: SymbolKind.Function,
+            location: {
+              uri: req.textDocument.uri,
+              range: fun.range,
+            },
+          } as SymbolInformation)
+      )
+      .concat(
+        doc.callback_implementations.map(
+          (callback) =>
+            ({
+              name: callback.name,
+              kind: SymbolKind.Method,
+              location: {
+                uri: req.textDocument.uri,
+                range: callback.range,
+              },
+            } as SymbolInformation)
+        )
+      );
   });
 });
 connection.onDidOpenTextDocument((params) => {

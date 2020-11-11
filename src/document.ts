@@ -1,6 +1,11 @@
 import { Tree } from "tree-sitter";
 import { TextDocumentContentChangeEvent } from "vscode-languageserver";
-import { Parse, ParseChange, All_function_definitions } from "./parser";
+import {
+  Parse,
+  ParseChange,
+  All_function_definitions,
+  Callback_implementations,
+} from "./parser";
 
 export default class Document {
   private ast: Tree;
@@ -40,5 +45,9 @@ export default class Document {
 
   get defined_functions() {
     return All_function_definitions(this.ast);
+  }
+
+  get callback_implementations() {
+    return Callback_implementations(this.ast);
   }
 }

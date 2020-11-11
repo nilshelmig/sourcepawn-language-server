@@ -36,6 +36,13 @@ export interface Function_definition {
   readonly args: ReadonlyArray<Argument>;
 }
 
+export interface Callback_implementation {
+  readonly range: Range;
+  readonly returnType: Type;
+  readonly name: string;
+  readonly args: ReadonlyArray<Argument>;
+}
+
 export function Parse(code: string) {
   return parser.parse(code);
 }
@@ -47,11 +54,18 @@ export function ParseChange(change: string, oldTree: Parser.Tree) {
 export function All_function_definitions(
   ast: Parser.Tree
 ): ReadonlyArray<Function_definition> {
-  if (!ast.rootNode) return [];
-
   return ast.rootNode
     .descendantsOfType("function_declaration")
     .map(parse_function_definition)
+    .filter(notNull);
+}
+
+export function Callback_implementations(
+  ast: Parser.Tree
+): ReadonlyArray<Callback_implementation> {
+  return ast.rootNode
+    .descendantsOfType("callback_implementation")
+    .map(parse_callback_implementation)
     .filter(notNull);
 }
 
@@ -80,10 +94,33 @@ function as_Position(point: Parser.Point): Position {
 function parse_function_definition(
   node: Parser.SyntaxNode
 ): Function_definition | null {
-  let args = node
-    .descendantsOfType("argument_declarations")[0]
-    .descendantsOfType("argument_declaration");
+  let args = getFieldNode("argumentsNode", node)?.children || [];
+  let name = getFieldNode("nameNode", node)?.text;
+  let returnTypeNode = getFieldNodes("returnTypeNodes", node)[0];
+  let returnType =
+    returnTypeNode?.childCount > 1
+      ? returnTypeNode?.firstChild?.text
+      : returnTypeNode?.text;
+  return name != null
+    ? {
+        range: {
+          start: as_Position(node.startPosition),
+          end: as_Position(node.endPosition),
+        },
+        returnType: parseType(returnType) || {
+          typeCase: 1,
+          type: SourcePawnType.Int,
+        },
+        name,
+        args: args.map(parse_argument).filter(notNull),
+      }
+    : null;
+}
 
+function parse_callback_implementation(
+  node: Parser.SyntaxNode
+): Callback_implementation | null {
+  let args = getFieldNode("argumentsNode", node)?.children || [];
   let name = getFieldNode("nameNode", node)?.text;
   let returnTypeNode = getFieldNodes("returnTypeNodes", node)[0];
   let returnType =
@@ -140,7 +177,7 @@ function parseBuiltInType(input: string | undefined): BuiltInType | null {
 
 function parse_argument(node: Parser.SyntaxNode): Argument | null {
   const name = getFieldNode("nameNode", node)?.text;
-  let typeNameNode = getFieldNode("argumentTypeNode", node)?.firstChild;
+  let typeNameNode = getFieldNode("typeNode", node)?.firstChild;
   const typeName =
     typeNameNode?.type === "symbol"
       ? typeNameNode.text
