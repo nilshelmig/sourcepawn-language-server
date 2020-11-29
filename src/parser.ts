@@ -1,11 +1,23 @@
 import Parser from "tree-sitter";
 import SourcePawn from "tree-sitter-sourcepawn";
+import path from "path";
 
 const parser = new Parser();
 parser.setLanguage(SourcePawn);
 
 export type Position = { line: number; character: number };
 export type Range = { start: Position; end: Position };
+
+export enum IncludeType {
+  Global_Include,
+  Relative_Include,
+}
+export type Dependency = {
+  includeType: IncludeType;
+  required: boolean;
+  path: string;
+  range: Range;
+};
 
 export enum SourcePawnType {
   Void,
@@ -58,6 +70,16 @@ export function ParseChange(change: string, oldTree: Parser.Tree) {
   return parser.parse(change, oldTree);
 }
 
+export function Dependencies(ast: Parser.Tree): ReadonlyArray<Dependency> {
+  return ast.rootNode
+    .descendantsOfType("preproc_include")
+    .map(parse_include)
+    .concat(
+      ast.rootNode.descendantsOfType("preproc_tryinclude").map(parse_tryinclude)
+    )
+    .filter(notNull);
+}
+
 export function All_function_definitions(
   ast: Parser.Tree
 ): ReadonlyArray<Function_definition> {
@@ -103,6 +125,62 @@ function getFieldNodes(
 
 function as_Position(point: Parser.Point): Position {
   return { line: point.row, character: point.column };
+}
+
+function parse_include(node: Parser.SyntaxNode): Dependency | null {
+  const path = getFieldNode("pathNode", node);
+  if (path == null) return null;
+
+  const includeType =
+    path.type === "system_lib_string"
+      ? IncludeType.Global_Include
+      : IncludeType.Relative_Include;
+  const file = parse_include_path(path.text, includeType);
+
+  return {
+    includeType,
+    required: true,
+    path: file,
+    range: {
+      start: as_Position(node.startPosition),
+      end: as_Position(node.endPosition),
+    },
+  };
+}
+
+function parse_tryinclude(node: Parser.SyntaxNode): Dependency | null {
+  const path = getFieldNode("pathNode", node);
+  if (path == null) return null;
+
+  const includeType =
+    path.type === "system_lib_string"
+      ? IncludeType.Global_Include
+      : IncludeType.Relative_Include;
+  const file = parse_include_path(path.text, includeType);
+
+  return {
+    includeType,
+    required: false,
+    path: file,
+    range: {
+      start: as_Position(node.startPosition),
+      end: as_Position(node.endPosition),
+    },
+  };
+}
+
+function parse_include_path(include: string, type: IncludeType): string {
+  let file =
+    type === IncludeType.Global_Include
+      ? include.replace("<", "").replace(">", "")
+      : include.split('"').join("");
+
+  const extension = path.extname(file);
+  return extension === ""
+    ? `${file}.inc`
+    : extension !== ".inc"
+    ? file.replace(extension, ".inc")
+    : file;
 }
 
 function parse_function_definition(

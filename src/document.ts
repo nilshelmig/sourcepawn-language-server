@@ -6,12 +6,15 @@ import {
   All_function_definitions,
   Callback_implementations,
   Global_variables,
+  Dependencies,
 } from "./parser";
 
 export default class Document {
+  public URI: string;
   private ast: Tree;
 
-  constructor(content: string) {
+  constructor(uri: string, content: string) {
+    this.URI = uri;
     this.ast = Parse(content);
   }
 
@@ -42,6 +45,10 @@ export default class Document {
         this.ast = Parse(change.text);
       }
     });
+  }
+
+  get dependencies() {
+    return Dependencies(this.ast);
   }
 
   get defined_functions() {

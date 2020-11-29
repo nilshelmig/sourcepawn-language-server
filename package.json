@@ -14,6 +14,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "find-up": "^5.0.0",
     "tree-sitter": "^0.17.1",
     "vscode-languageserver": "^6.1.1"
   },
