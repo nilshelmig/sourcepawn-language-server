@@ -5,6 +5,7 @@ import {
   ParseChange,
   All_function_definitions,
   Callback_implementations,
+  Global_variables,
 } from "./parser";
 
 export default class Document {
@@ -49,5 +50,9 @@ export default class Document {
 
   get callback_implementations() {
     return Callback_implementations(this.ast);
+  }
+
+  get global_variables() {
+    return Global_variables(this.ast);
   }
 }

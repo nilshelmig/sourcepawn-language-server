@@ -240,7 +240,7 @@ test("Parsing old style function declaration - single argument", () => {
   const defined_functions = All_function_definitions(
     AST_of(
       `MyFunc1(a) {}
-      MyFunc2(_:a)) {}
+      MyFunc2(_:a) {}
       MyFunc3(Float:a) {}
       MyFunc4(String:a) {}
       MyFunc5(bool:a) {}
@@ -258,7 +258,7 @@ test("Parsing old style function declaration - single argument", () => {
       "MyFunc2",
       types.int,
       [argument("a", types.int)],
-      from(1, 6).to(1, 22)
+      from(1, 6).to(1, 21)
     ),
     defined_function(
       "MyFunc3",

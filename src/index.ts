@@ -2,6 +2,7 @@ import Document from "./document";
 import {
   createConnection,
   IConnection,
+  CompletionItem,
   CompletionItemKind,
   SymbolKind,
   SymbolInformation,
@@ -25,19 +26,32 @@ connection.onInitialized((_) => {
   connection.console.log("Started sourcepawn LS");
   connection.onCompletion((req) => {
     try {
-      let funcs = docs[req.textDocument.uri].defined_functions;
-      return funcs.map((fun) => ({
-        label: fun.name,
-        kind: CompletionItemKind.Function,
-        detail: `${fun.returnType} (${fun.args
-          .map(
-            (a) =>
-              `${a.type} ${a.name}${
-                a.defaultValue ? ` = ${a.defaultValue}` : ""
-              }`
+      const doc = docs[req.textDocument.uri];
+      return doc.defined_functions
+        .map(
+          (fun) =>
+            ({
+              label: fun.name,
+              kind: CompletionItemKind.Function,
+              detail: `${fun.returnType} (${fun.args
+                .map(
+                  (a) =>
+                    `${a.type} ${a.name}${
+                      a.defaultValue ? ` = ${a.defaultValue}` : ""
+                    }`
+                )
+                .join(", ")})`,
+            } as CompletionItem)
+        )
+        .concat(
+          doc.global_variables.map(
+            (variable) =>
+              ({
+                label: variable.name,
+                kind: CompletionItemKind.Variable,
+              } as CompletionItem)
           )
-          .join(", ")})`,
-      }));
+        );
     } catch (error) {
       connection.console.error(`${error}`);
     }
@@ -65,6 +79,19 @@ connection.onInitialized((_) => {
               location: {
                 uri: req.textDocument.uri,
                 range: callback.range,
+              },
+            } as SymbolInformation)
+        )
+      )
+      .concat(
+        doc.global_variables.map(
+          (variable) =>
+            ({
+              name: variable.name,
+              kind: SymbolKind.Variable,
+              location: {
+                uri: req.textDocument.uri,
+                range: variable.range,
               },
             } as SymbolInformation)
         )

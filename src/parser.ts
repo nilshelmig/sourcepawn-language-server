@@ -43,6 +43,13 @@ export interface Callback_implementation {
   readonly args: ReadonlyArray<Argument>;
 }
 
+export interface Variable {
+  readonly range: Range;
+  readonly type: Type;
+  readonly name: string;
+  readonly hasInitialValue: boolean;
+}
+
 export function Parse(code: string) {
   return parser.parse(code);
 }
@@ -67,6 +74,13 @@ export function Callback_implementations(
     .descendantsOfType("callback_implementation")
     .map(parse_callback_implementation)
     .filter(notNull);
+}
+
+export function Global_variables(ast: Parser.Tree): ReadonlyArray<Variable> {
+  return ast.rootNode.children
+    .filter((_) => _.type === "variable_declaration_statement")
+    .map(parse_variable_declarations)
+    .reduce((acc, val) => acc.concat(val), []);
 }
 
 function notNull<T>(element: T | null): element is T {
@@ -143,6 +157,79 @@ function parse_callback_implementation(
     : null;
 }
 
+function parse_variable_declarations(
+  node: Parser.SyntaxNode
+): ReadonlyArray<Variable> {
+  let typeNode = getFieldNode("typeNode", node);
+  let type: Type = (typeNode && extractType(typeNode)) || {
+    typeCase: 1,
+    type: SourcePawnType.Int,
+  };
+  const dimensions = typeNode?.descendantsOfType("dimension").length || 0;
+  if (dimensions > 0) type = { typeCase: 3, depth: dimensions, type };
+
+  let vars = node
+    .descendantsOfType("variable_declaration")
+    .map((n) => parse_variable_declaration(n, type))
+    .filter(notNull);
+
+  return vars.length == 1
+    ? [
+        {
+          ...vars[0],
+          range: {
+            start: as_Position(node.startPosition),
+            end: as_Position(node.endPosition),
+          },
+        },
+      ]
+    : vars;
+}
+
+function parse_variable_declaration(
+  node: Parser.SyntaxNode,
+  initialType: Type
+): Variable | null {
+  const name = getFieldNode("nameNode", node)?.text;
+  const dimension =
+    node.descendantsOfType("dimension").length +
+    node.descendantsOfType("fixed_dimension").length;
+  const type: Type =
+    dimension > 0
+      ? initialType.typeCase === 3
+        ? expandDimensionalType(initialType, dimension + 1)
+        : ({
+            typeCase: 3,
+            depth: dimension,
+            type: initialType,
+          } as DimensionalType)
+      : initialType;
+  const hasInitialValue = getFieldNodes("initialValueNodes", node).length !== 0;
+
+  return name != null
+    ? {
+        name,
+        type,
+        range: {
+          start: as_Position(node.startPosition),
+          end: as_Position(node.endPosition),
+        },
+        hasInitialValue,
+      }
+    : null;
+}
+
+function expandDimensionalType(
+  type: DimensionalType,
+  depth: number
+): DimensionalType {
+  return {
+    typeCase: 3,
+    depth,
+    type: type.type,
+  };
+}
+
 function parseType(input: string | undefined): BuiltInType | CustomType | null {
   return input === undefined
     ? null
@@ -177,11 +264,8 @@ function parseBuiltInType(input: string | undefined): BuiltInType | null {
 
 function parse_argument(node: Parser.SyntaxNode): Argument | null {
   const name = getFieldNode("nameNode", node)?.text;
-  let typeNameNode = getFieldNode("typeNode", node)?.firstChild;
-  const typeName =
-    typeNameNode?.type === "symbol"
-      ? typeNameNode.text
-      : typeNameNode?.firstChild?.text;
+  const typeNode = getFieldNode("typeNode", node);
+  const type = typeNode && extractType(typeNode);
 
   const dimension =
     node.descendantsOfType("dimension").length +
@@ -194,11 +278,21 @@ function parse_argument(node: Parser.SyntaxNode): Argument | null {
             ? ({
                 typeCase: 3,
                 depth: dimension,
-                type: parseType(typeName),
+                type,
               } as DimensionalType)
-            : parseType(typeName) || { typeCase: 1, type: SourcePawnType.Int },
+            : type || { typeCase: 1, type: SourcePawnType.Int },
         name,
         defaultValue: getFieldNodes("defaultValueNodes", node)[1]?.text,
       }
     : null;
+}
+
+function extractType(node: Parser.SyntaxNode): BuiltInType | CustomType | null {
+  let typeNameNode = node?.firstChild;
+  const typeName =
+    typeNameNode?.type === "symbol"
+      ? typeNameNode.text
+      : typeNameNode?.firstChild?.text;
+
+  return parseType(typeName);
 }
